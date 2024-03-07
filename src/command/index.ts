@@ -17,7 +17,7 @@ const main = async () => {
     alias: {
       t: 'http',
       p: 'port',
-      h: 'host',
+      o: 'host',
       c: 'cert',
       k: 'key',
       a: 'apiKey',
@@ -32,7 +32,7 @@ const main = async () => {
   const datasourceUrl = argv._[0];
   const http = argv.http;
   const port = argv.p ?? 4000;
-  const host = argv.h;
+  const host = argv.o;
   const cert = argv.c;
   const key = argv.k;
   const wasm = argv.w;
@@ -50,7 +50,7 @@ const main = async () => {
     console.log('OPTIONS'.bold);
     console.log(`\t-t, --http Accepted at http`);
     console.log(`\t-p, --port <port> Port to listen on`);
-    console.log(`\t-p, --host <host> Host to listen on`);
+    console.log(`\t-o, --host <host> Host to listen on`);
     console.log(`\t-c, --cert <path> Path to ssl cert file`);
     console.log(`\t-k, --key <path> Path to ssl key file`);
     console.log(`\t-w, --wasm Use wasm as the run-time engine`);
