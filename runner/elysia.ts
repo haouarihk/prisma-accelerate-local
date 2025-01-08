@@ -152,6 +152,9 @@ const createServer = ({
     const app = new Elysia();
 
     app
+        .get('/ping', () => {
+            return "pong"
+        })
         .post('/:version/:hash/graphql', async (req) => {
             const txtBody = await req.request.text()
 
