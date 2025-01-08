@@ -1,4 +1,4 @@
-FROM --platform=$BUILDPLATFORM oven/bun:alpine AS builder
+FROM oven/bun:alpine AS builder
 
 WORKDIR /app
 
@@ -10,12 +10,16 @@ COPY runner/package.json ./runner/
 # Install dependencies with platform-specific settings
 RUN if [ "$(uname -m)" = "aarch64" ]; then \
         apk add --no-cache libc6-compat; \
-    fi && \
-    bun install && \
-    cd runner && bun install
+    fi
+
+# Install dependencies
+RUN bun install 
+
+# Install runner dependencies
+RUN cd runner && bun install
 
 # Production image
-FROM --platform=$TARGETPLATFORM oven/bun:alpine
+FROM oven/bun:alpine
 
 WORKDIR /app
 

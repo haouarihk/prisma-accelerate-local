@@ -1,5 +1,5 @@
 {
-  "name": ".",
+  "name": "prisma-accelerate-runner",
   "module": "index.ts",
   "type": "module",
   "devDependencies": {
