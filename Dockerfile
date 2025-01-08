@@ -2,15 +2,17 @@ FROM --platform=$BUILDPLATFORM oven/bun:alpine AS builder
 
 WORKDIR /app
 
-# Copy package files
+# Copy all package files first
 COPY package.json ./
 COPY pnpm-lock.yaml ./
+COPY runner/package.json ./runner/
 
 # Install dependencies with platform-specific settings
 RUN if [ "$(uname -m)" = "aarch64" ]; then \
         apk add --no-cache libc6-compat; \
     fi && \
-    bun install
+    bun install && \
+    cd runner && bun install
 
 # Production image
 FROM --platform=$TARGETPLATFORM oven/bun:alpine
@@ -19,6 +21,7 @@ WORKDIR /app
 
 # Copy only necessary files from builder
 COPY --from=builder /app/node_modules ./node_modules
+COPY --from=builder /app/runner/node_modules ./runner/node_modules
 COPY ./runner ./runner
 COPY ./src ./src
 COPY ./package.json ./
