@@ -1,12 +1,9 @@
 import fs from 'fs';
 import { type Server } from 'node:https';
 import path from 'path';
-import { PrismaPg } from '@prisma/adapter-pg';
-import { getPrismaClient } from '@prisma/client/runtime/library.js';
 import { download } from '@prisma/fetch-engine';
 import { fastify, type FastifyHttpsOptions } from 'fastify';
 import forge from 'node-forge';
-import pg from 'pg';
 import { PrismaAccelerate } from './prisma-accelerate.js';
 export * from './prisma-accelerate.js';
 
@@ -57,6 +54,8 @@ export const createKey = () => {
 const getAdapter = (datasourceUrl: string) => {
   const url = new URL(datasourceUrl);
   const schema = url.searchParams.get('schema');
+  const { PrismaPg } = require('@prisma/adapter-pg');
+  const pg = require('pg');
   const pool = new pg.Pool({
     connectionString: url.toString(),
   });
@@ -102,9 +101,11 @@ export const createServer = ({
     datasourceUrl: string;
   }) => Promise<void>;
 }) => {
+  const { getPrismaClient } = require('@prisma/client/runtime/library.js');
   const prismaAccelerate = new PrismaAccelerate({
     secret,
     datasourceUrl,
+    activeProvider: 'postgresql',
     adapter: wasm ? getAdapter : undefined,
     getRuntime: () => require(`@prisma/client/runtime/query_engine_bg.postgresql.js`),
     getPrismaClient,
@@ -154,16 +155,16 @@ export const createServer = ({
     },
   });
 
-  const fstf = fastify({
+  const _fastify = fastify({
     https: https === undefined ? createKey() : https,
     ...fastifySeverOptions,
   });
 
-  fstf.addContentTypeParser('*', { parseAs: 'string' }, function (_req, body, done) {
+  _fastify.addContentTypeParser('*', { parseAs: 'string' }, function (_req, body, done) {
     done(null, body);
   });
 
-  fstf
+  _fastify
     .post('/:version/:hash/graphql', async ({ body, params, headers }, reply) => {
       const { hash } = params as { hash: string };
       return prismaAccelerate.query({ hash, headers, body }).catch((e) => {
@@ -207,5 +208,5 @@ export const createServer = ({
       return reply.status(404).send('Not found');
     });
 
-  return fstf;
+  return _fastify;
 };
