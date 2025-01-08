@@ -1,8 +1,4 @@
-FROM oven/bun:alpine AS builder
-
-# Add build arguments
-ARG BUILD_VAR
-ENV BUILD_VAR=$BUILD_VAR
+FROM --platform=$BUILDPLATFORM oven/bun:alpine AS builder
 
 WORKDIR /app
 
@@ -10,14 +6,14 @@ WORKDIR /app
 COPY package.json ./
 COPY pnpm-lock.yaml ./
 
-# Install dependencies
-RUN bun install
-
-# Build if needed (uncomment if you have a build step)
-# RUN bun run build
+# Install dependencies with platform-specific settings
+RUN if [ "$(uname -m)" = "aarch64" ]; then \
+        apk add --no-cache libc6-compat; \
+    fi && \
+    bun install
 
 # Production image
-FROM oven/bun:alpine
+FROM --platform=$TARGETPLATFORM oven/bun:alpine
 
 WORKDIR /app
 
@@ -30,5 +26,5 @@ COPY ./package.json ./
 # Set user for security
 USER bun
 
-# Command to run the app with force kill signal handling
+# Command to run the app
 CMD ["bun", "runner/index.ts"] 
