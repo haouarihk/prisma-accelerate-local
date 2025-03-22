@@ -1,7 +1,9 @@
 version: '3'
 services:
   accelerate:
-      image: 'ghcr.io/haouarihk/prisma-accelerate-local:latest'
+      build:
+        context: .
+        dockerfile: Dockerfile
       restart: unless-stopped
       ports:
         - 4000:4000
@@ -11,3 +13,5 @@ services:
         - PORT=4000
         - HOST=localhost
         - USE_ELYSIA=1
+        - PRISMA_TRACE_ENGINE_CLIENT=0
+        - PRISMA_TELEMETRY_INFORMATION_DISABLED=1

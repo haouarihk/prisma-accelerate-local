@@ -1,244 +1,48 @@
 # prisma-accelerate-local
 
-Prisma Accelerate functionality can be self-hosted locally.
+This is a fork of [prisma-accelerate-local](https://github.com/node-libraries/prisma-accelerate-local) that provides self-hosted Prisma Accelerate functionality for local development and production environments.
 
-## Samples
+## Overview
 
-- Node.js (local)  
-  https://github.com/SoraKumo001/prisma-accelerate-local-test
-- Cloudflare Workers(Postgres) (local)  
-  https://github.com/SoraKumo001/cloudflare-workers-prisma
-- Cloudflare Workers(Postgres) (server)  
-  https://github.com/SoraKumo001/prisma-accelerate-workers
-- Cloudflare Workers(D1) (server)  
-  https://github.com/SoraKumo001/prisma-accelerate-workers-d1
-- Deno(Postgres) (server)  
-  https://github.com/SoraKumo001/prisma-accelerate-deno
+This package allows you to run Prisma Accelerate locally, providing connection pooling and query caching capabilities without relying on Prisma's cloud service.
 
-## usage
+## Added Features
 
-### CLI Options
+- **Docker Support**: Ready-to-use Docker configuration for easy integration with docker-compose
+- **Performance Improvements**: Optional Elysia.js and Bun.js runtime instead of Fastify and Node.js (enable with `USE_ELYSIA=1` environment variable)
+- **Simple Configuration**: Easy setup with minimal environment variables
 
-| Category      | Option                      | Description                                   |
-| ------------- | --------------------------- | --------------------------------------------- |
-| **USAGE**     | [option] _\<url>_           |                                               |
-| **ARGUMENTS** | _\<url>_                    | Datasource url                                |
-| **OPTIONS**   | -t, --http                  | Accepted at http                              |
-|               | -p, --port \<port>          | Port to listen on (default:4000)              |
-|               | -o, --host \<host>          | Host to listen on (default:localhost)         |
-|               | -c, --cert \<path>          | Path to ssl cert file                         |
-|               | -k, --key \<path>           | Path to ssl key file                          |
-|               | -w, --wasm                  | Use wasm as the run-time engine(early-access) |
-|               | -s, --secret \<secret>      | Secret used with API key                      |
-|               | -m, --make                  | make api key                                  |
-|               | -b, --bodyLimit \<size(MB)> | body limit size(default: 16MB)                |
+## Requirements
 
-### CLI
+- Node.js 18+ or Bun.js
+- a database supported
+- Docker (optional, for containerized deployment)
 
-#### Start without setting an API key for local use.
+# Usage:
 
-```sh
-# Startup by specifying the Datasource url
-npx prisma-accelerate-local postgresql://postgres:password@localhost:5432/postgres
-
-# Startup by specifying Port
-npx prisma-accelerate-local postgresql://postgres:password@localhost:5432/postgres -p 8000
+```yaml
+version: '3'
+services:
+  webtest:
+    image: hello-world
+    environment:
+      - DATA_PROXY_URL=prisma://accelerate:4000/?api_key=123123
+    depends_on:
+      - accelerate
+  accelerate:
+      image: ghcr.io/haouarihk/prisma-accelerate-local:latest
+      restart: unless-stopped
+      stop_signal: SIGKILL
+      network_mode: host
+      environment:
+        - PORT=4000
+        - HOST=0.0.0.0
+        - USE_ELYSIA=1
+        - PRISMA_TRACE_ENGINE_CLIENT=0
+        - PRISMA_TELEMETRY_INFORMATION_DISABLED=1
+        - DATA_PROXY_API_KEY=123123
+        - DATABASE_URL=${DATABASE_URL} # YOUR DATABASE CONNECTION STRING
 ```
 
-#### When setting the API key
-
-- Create an API key
-
-```sh
-npx prisma-accelerate-local -s secret -m postgresql://postgres:password@localhost:5432/postgres
-
-# Output
-eyJhbGciOiJIUzI1NiJ9.eyJkYXRhc291cmNlVXJsIjoiYSIsImlhdCI6MTcwMzY2NDg1NywiaXNzIjoicHJpc21hLWFjY2VsZXJhdGUifQ.4ruaA1RAT9cD3PACSEVIdUs3i2exKkMpNYGks3hyos4
-```
-
-- Activate with API key enabled.
-
-If secret is used, the DB address is embedded in the API key
-
-```sh
-npx prisma-accelerate-local -s secret
-```
-
-### Client Environment Variables
-
-#### With regard to the Node.js configuration.
-
-Please set the environment variable NODE_TLS_REJECT_UNAUTHORIZED because you are using an unauthenticated certificate.
-
-#### With regard to api_key
-
-- If you are not using `secret`, the api_key can be any string.
-- If you are using `secret`, put `--secret` and the api_key created with `--make` in api_key
-
-#### Example
-
-- .env
-
-```env
-DATABASE_URL="prisma://localhost:4000/?api_key=API_KEY"
-NODE_TLS_REJECT_UNAUTHORIZED="0"
-# To remove the NODE_TLS_REJECT_UNAUTHORIZED warning
-NODE_NO_WARNINGS="1"
-```
-
-## library
-
-If you call this package as a library, it will look like this.
-
-```ts
-import { createServer } from 'prisma-accelerate-local';
-
-const server = createServer({
-  datasourceUrl: 'postgresql://postgres:password@localhost:5432/postgres',
-})
-  .listen({ port: 4000 })
-  .then((url) => console.log(`🚀  Server ready at ${url} `));
-```
-
-## When self-hosting with Deno Deploy (PostgreSQL)
-
-https://github.com/SoraKumo001/prisma-accelerate-deno
-
-```ts
-import pg from 'npm:pg';
-import { PrismaPg } from 'npm:@prisma/adapter-pg';
-import { createHandler, importModule } from 'npm:prisma-accelerate-local/deno';
-import runtime from 'npm:@prisma/client/runtime/query_engine_bg.postgresql.js';
-
-const engine = '@prisma/client/runtime/query_engine_bg.postgresql.wasm';
-
-Deno.serve(
-  createHandler({
-    runtime: () => runtime,
-    secret: Deno.env.get('SECRET')!,
-    queryEngineWasmModule: importModule(engine, import.meta.url),
-    adapter: (datasourceUrl: string) => {
-      const url = new URL(datasourceUrl);
-      const schema = url.searchParams.get('schema') ?? undefined;
-      const pool = new pg.Pool({
-        connectionString: url.toString() ?? undefined,
-      });
-      return new PrismaPg(pool, {
-        schema,
-      });
-    },
-  })
-);
-```
-
-## When self-hosting with Cloudflare Workers (D1)
-
-https://github.com/SoraKumo001/prisma-accelerate-workers-d1
-
-```ts
-import WASM from '@prisma/client/runtime/query_engine_bg.sqlite.wasm';
-import { PrismaD1 } from '@prisma/adapter-d1';
-import { createFetcher } from 'prisma-accelerate-local/workers';
-
-export type Env = {
-  SECRET: string;
-} & {
-  [key: string]: D1Database;
-};
-
-export default {
-  fetch: createFetcher({
-    queryEngineWasmModule: WASM,
-    secret: (env: Env) => env.SECRET,
-    runtime: () => require(`@prisma/client/runtime/query_engine_bg.sqlite.js`),
-    adapter: (datasourceUrl: string, env) => {
-      return new PrismaD1(env[datasourceUrl]);
-    },
-    singleInstance: false,
-  }),
-};
-```
-
-## When self-hosting with Cloudflare Workers (PostgreSQL)
-
-https://github.com/SoraKumo001/prisma-accelerate-workers
-
-- package.json
-
-Need `pg-compat` to patch `pg` to fix it.
-
-```json
-{
-  "name": "prisma-accelerate-workers",
-  "version": "1.0.0",
-  "private": true,
-  "type": "module",
-  "scripts": {
-    "deploy": "wrangler deploy",
-    "dev": "wrangler dev",
-    "start": "wrangler dev"
-  },
-  "dependencies": {
-    "@prisma/adapter-pg": "^5.20.0",
-    "@prisma/client": "^5.20.0",
-    "pg": "^8.13.0",
-    "prisma-accelerate-local": "^1.1.10"
-  },
-  "devDependencies": {
-    "@cloudflare/workers-types": "^4.20241011.0",
-    "@types/pg": "^8.11.10",
-    "pg-compat": "^0.0.7",
-    "typescript": "^5.6.3",
-    "wrangler": "^3.80.4"
-  }
-}
-```
-
-- wrangler.toml
-
-Set `nodejs_compat_v2`.
-
-```toml
-name = "prisma-accelerate-workers"
-main = "src/index.ts"
-minify = true
-compatibility_date = "2024-09-23"
-compatibility_flags = ["nodejs_compat_v2"]
-
-[placement]
-mode = "smart"
-
-[observability]
-enabled = true
-```
-
-- src/index.ts
-
-```ts
-import { Pool } from 'pg';
-import { PrismaPg } from '@prisma/adapter-pg';
-import { createFetcher } from 'prisma-accelerate-local/workers';
-import WASM from '@prisma/client/runtime/query_engine_bg.postgresql.wasm';
-
-export type Env = {
-  SECRET: string;
-};
-
-export default {
-  fetch: createFetcher({
-    runtime: () => require(`@prisma/client/runtime/query_engine_bg.postgresql.js`),
-  secret: (env: Env) => env.SECRET,~
-    queryEngineWasmModule: WASM,
-    adapter: (datasourceUrl: string) => {
-      const url = new URL(datasourceUrl);
-      const schema = url.searchParams.get('schema') ?? undefined;
-      const pool = new Pool({
-        connectionString: url.toString() ?? undefined,
-      });
-      return new PrismaPg(pool, {
-        schema,
-      });
-    },
-  }),
-};
-```
+## Notes:
+- make sure that DATA_PROXY_API_KEY and DATA_PROXY_URL match the api_key
